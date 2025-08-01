@@ -45,4 +45,9 @@ const signOut = catchAsync(async (req, res) => {
     .json({ message: "Logged Out Successfully" });
 });
 
-module.exports= {signUp,signIn,signOut}
+const getAllUser=catchAsync(async(req,res)=>{
+    const users = await User.find({}).exec();
+    return res.status(httpStatus.OK).json({users:users});
+})
+
+module.exports= {signUp,signIn,signOut,getAllUser}
