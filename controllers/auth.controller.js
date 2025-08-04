@@ -62,8 +62,8 @@ const getAllUser = catchAsync(async (req, res) => {
 // email login
 const Register = catchAsync(async (req, res) => {
   try {
-    const otp = await authService.emailLogin(req.body);
-    return res.json({ message: "OTP sent to your email" });
+    const {email} = await authService.emailLogin(req.body);
+    return res.json({ message: "OTP sent to your email", email:email});
   } catch (err) {
     return res.status(httpStatus.BAD_REQUEST).json({ errmessage: err.message });
   }

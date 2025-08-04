@@ -19,10 +19,7 @@ const sendMessage = catchAsync(async (req, res, next) => {
   if (!newMessage) {
     return res.status(400).json({ message: "Message failed to send" });
   }
-
-  res
-    .status(201)
-    .json({ message: "Message sent successfully", data: newMessage });
+return  res.status(201) .json({ message: "Message sent successfully", data: newMessage });
 });
 
 const getMessages = catchAsync(async (req, res, next) => {

@@ -76,7 +76,7 @@ const emailLogin = async (body) => {
     password: password,
   });
   await sendOTP(email,otp);
-  return { message: "OTP sent to email" };
+  return { message: "OTP sent to email",otp:otp,email:email };
 };
 
 const verifyOtpAndRegister = async (body) => {

@@ -8,4 +8,4 @@ router.post('/register', authController.Register)
 router.post('/verify-otp', authController.verifyOtpAndRegister);
 router.post('/signOut',isAuth, authController.signOut);
 router.get('/users', authController.getAllUser);
-module.exports =router;
+module.exports =router;  
