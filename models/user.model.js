@@ -42,6 +42,10 @@ const userSchema= mongoose.Schema({
         type: Boolean,
         default: false,
     },
+     refreshToken: {
+    type: String,
+    default: "",
+  },
 },
 {
     timestamps: true,
@@ -82,5 +86,19 @@ userSchema.statics.isEmailTaken = async function (email, excludeUserId) {
         }
     )
 }
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+      email: this.email,
+    },
+    process.env.JWT_REFRESH_SECRET,
+    {
+      expiresIn: process.env.JWT_REFRESH_EXPIRE,
+    }
+  );
+};
+
+
 
 module.exports = mongoose.model('User', userSchema);

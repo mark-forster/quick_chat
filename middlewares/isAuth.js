@@ -2,7 +2,7 @@ const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 const ApiError = require('../config/apiError');
 const catchAsync = require('../config/catchAsync');
-
+require("dotenv").config();
 const isAuth = catchAsync(async (req, _, next) => {
   try {
     let token;
