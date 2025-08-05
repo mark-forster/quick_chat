@@ -3,6 +3,7 @@ const ApiError = require('../config/apiError')
 const httpStatus = require('http-status')
 const mongoose = require('mongoose');
 const cloudinary = require('cloudinary').v2;
+const { v4: uuidv4 } = require('uuid'); // import uuid
 
 const followUnfollow = async(currentUser_id,follower_id )=>{
     if(currentUser_id == follower_id){
@@ -39,13 +40,20 @@ const updateUser= async(userId,data)=>{
     const user = await User.findById(userId);
     console.log(data.profilePic);
     if (data.profilePic) {
-        if (user.profilePic) {
-            await cloudinary.uploader.destroy(user.profilePic.split("/").pop().split(".")[0]);
-        }
-
-        const uploadedResponse = await cloudinary.uploader.upload(data.profilePic);
-        data.profilePic = uploadedResponse.secure_url;
+    if (user.profilePic) {
+        await cloudinary.uploader.destroy(user.profilePic.split("/").pop().split(".")[0]);
     }
+
+    const uuid = uuidv4(); // generate a UUID
+    const uploadedResponse = await cloudinary.uploader.upload(data.profilePic, {
+        public_id: uuid,           // custom filename using UUID
+        use_filename: false,       // don’t use the original filename
+        unique_filename: false,    // don’t generate extra UUID
+        overwrite: true            // if same name exists, overwrite it
+    });
+
+    data.profilePic = uploadedResponse.secure_url;
+}
     user.name = data.name || user.name;
     user.email = data.email || user.email;
     user.username = data.username || user.username;
