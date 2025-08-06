@@ -1,5 +1,6 @@
 const multer = require('multer');
 const path=require('path');
+const fs=require('fs');
 // Server ပေါ်မှာ ယာယီသိမ်းဆည်းမယ့် လမ်းကြောင်း
 const storage = multer.diskStorage({
    destination: function (req, file, cb) {
