@@ -36,7 +36,7 @@ app.use('/api/v1/', routes)
 //     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 //   });
 // }
-server.listen(process.env.PORT,()=>{
+server.listen(process.env.PORT || 8080,()=>{
     console.log('Server is running on port 8080');
 });  
 
