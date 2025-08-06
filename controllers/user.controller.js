@@ -18,6 +18,7 @@ const updateUser= catchAsync(async (req,res,next)=>{
     
     const data= req.body;
      const file = req.file;
+     console.log(file);
     const user = await userService.updateUser(userId,data,file);
     user.password= null;
      // Find all posts that this user replied and update username and profilePic fields
