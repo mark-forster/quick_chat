@@ -15,9 +15,7 @@ const followUnfollow = catchAsync(async (req,res,next)=>{
 const updateUser= catchAsync(async (req,res,next)=>{
     const userId= req.user._id;
     // metching current Id and update user Id
-    if(req.params.id !== userId.toString()){
-        return res.status(400).json({message:"Invalid user id"});
-    }
+    
     const data= req.body;
     const user = await userService.updateUser(userId,data);
     user.password= null;
