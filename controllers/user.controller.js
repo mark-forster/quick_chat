@@ -17,7 +17,8 @@ const updateUser= catchAsync(async (req,res,next)=>{
     // metching current Id and update user Id
     
     const data= req.body;
-    const user = await userService.updateUser(userId,data);
+     const file = req.file;
+    const user = await userService.updateUser(userId,data,file);
     user.password= null;
      // Find all posts that this user replied and update username and profilePic fields
 		await Post.updateMany(
