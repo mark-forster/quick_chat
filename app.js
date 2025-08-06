@@ -7,6 +7,7 @@ const httpStatus = require("http-status");
 const {app,server} = require('./socket/socket');
 const { errorHandler,errorConverter } = require("./middlewares/error");
 const path= require('path');
+const bodyParser=require('body-parser');
 // const __dirname = path.resolve();
 
 // Require the cloudinary library
@@ -23,7 +24,7 @@ app.use(express.json());//To parse json data in req.body
 app.use(express.urlencoded({ extended:false })); //To parse data in req.body
 app.use(cookieParser());
 
-
+app.use(bodyParser.urlencoded({extended: false}));
 // routes conncection
 app.use('/api/v1/', routes)
 

@@ -30,9 +30,17 @@ const postSchema = mongoose.Schema(
           type: String,
           required: true,
         },
-        profilePic: {
+       profilePic: {
+        // ဤနေရာတွင် Object အဖြစ် ပြင်ဆင်ပါ
+        public_id: {
           type: String,
+          default: null,
         },
+        url: {
+          type: String,
+          default: null,
+        },
+      },
         username: {
           type: String,
         },
