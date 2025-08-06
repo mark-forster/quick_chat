@@ -43,6 +43,7 @@ const followUnfollow = async (currentUser_id, follower_id) => {
 };
 
 const updateUser = async (userId, data, file) => {
+  let uploadedFile=null;
   try {
     const user = await User.findById(userId);
 
@@ -52,6 +53,7 @@ const updateUser = async (userId, data, file) => {
     console.log(file);
 
     if (file) {
+      uploadedFile=file.path;
       if (user.profilePic && user.profilePic.public_id) {
         await cloudinary.uploader.destroy(user.profilePic.public_id);
       }
