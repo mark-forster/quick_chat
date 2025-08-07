@@ -50,7 +50,6 @@ const updateUser = async (userId, data, file) => {
     if (!user) {
       throw new Error("User not found");
     }
-    console.log(file);
 
     if (file) {
       uploadedFile=file.path;

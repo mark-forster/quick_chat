@@ -11,8 +11,9 @@ const postSchema = mongoose.Schema(
       maxLength: 500,
     },
     img: {
-      type: String,
-    },
+          public_id: { type: String, default: null },
+          url: { type: String, default: null },
+        },
     likes: {
       // array of user ids
       type: [mongoose.Schema.Types.ObjectId],

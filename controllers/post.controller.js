@@ -16,8 +16,8 @@ const createPost = catchAsync (async(req,res)=>{
    try{
     const data= req.body;
     const user_id = req.user._id;
-
-    const post = await postService.newPost(user_id,data);
+    const img=req.file;
+    const post = await postService.newPost(user_id,data,img);
  return  res.status(httpStatus.OK).json({post: post, message:"Post created successfully"})
    }
    catch(error){
@@ -33,33 +33,7 @@ const getpostById= catchAsync (async(req,res,next) =>{
     }
     res.status(200).json({post:post})
 });
-// delete post by Id
-const deletePostById= catchAsync (async(req,res,next) =>{
-    const postId= req.params.postId;
-    const user_id = req.user._id;
-    try{
-        const toDeletePost= await Post.findById(postId);
-    if(!toDeletePost){
-        throw new ApiError(httpStatus.NOT_FOUND,"Post not found")
-    }
-    
-		if (toDeletePost.postedBy == req.user._id) {
-			throw new ApiError(httpStatus.BAD_GATEWAY,"An unthrozied user to delete post");
-		}
 
-		if (toDeletePost.img) {
-			const imgId = toDeletePost.img.split("/").pop().split(".")[0];
-			await cloudinary.uploader.destroy(imgId);
-		}
-
-
-    await Post.findByIdAndDelete(postId);
-    return res.status(200).json({message:"Post deleted successfully"});
-    }
-    catch(error){
-        return res.json({errorMessage: error.message})
-    }
-});
 // delete all posts
 const deleteAllPost= catchAsync(async(req,res,next)=>{
     await Post.deleteMany({});
@@ -113,14 +87,42 @@ const getUserPost= async(req, res, next)=>{
     // console.log(posts);
 };
 
+
+// Controller for updating an existing post
+const updatePostController = catchAsync(async (req, res, next) => {
+    const postId = req.params.postId;
+    const { text } = req.body;
+    const img = req.file;
+
+    const updatedPost = await postService.updatePostById(postId, req.user._id, { text }, img);
+
+    res.status(httpStatus.OK).json({
+        message: 'Post updated successfully',
+        post: updatedPost,
+    });
+});
+
+// Controller for deleting a post
+const deletePostController = catchAsync(async (req, res, next) => {
+    const postId = req.params.postId;
+
+    await postService.deletePostById(postId, req.user._id);
+
+    res.status(httpStatus.OK).json({
+        message: 'Post deleted successfully',
+    });
+});
+
+
 module.exports= {
     createPost,
     getAllPost,
     getpostById,
-    deletePostById,
     deleteAllPost,
     likePostById,
     replyToPost,
     getFeed,
-    getUserPost
+    getUserPost,
+    updatePostController,
+    deletePostController
 }
