@@ -29,10 +29,7 @@ app.use(bodyParser.urlencoded({extended: false}));
 // routes conncection
 app.use('/api/v1/', routes)
 
-app.use(cors({
-  origin: "https://react-828r.onrender.com",
-  credentials: true
-}));
+
 
 server.listen(process.env.PORT || 8080,()=>{
     console.log('Server is running on port 8080');
