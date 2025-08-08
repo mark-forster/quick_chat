@@ -30,7 +30,7 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use('/api/v1/', routes)
 
 app.use(cors({
-  origin: "https://react-828r.onrender.com/auth",
+  origin: "https://react-828r.onrender.com",
   credentials: true
 }));
 
