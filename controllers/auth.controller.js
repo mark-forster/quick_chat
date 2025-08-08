@@ -75,7 +75,7 @@ const Register = catchAsync(async (req, res) => {
 
 const verifyOtpAndRegister = catchAsync(async (req, res) => {
   const { user, accessToken, refreshToken, options } = await authService.verifyOtpAndRegister(req.body);
-
+  
   if (!user) {
     return res.status(400).json({ message: "Invalid or expired OTP" });
   }
@@ -87,6 +87,20 @@ const verifyOtpAndRegister = catchAsync(async (req, res) => {
     .json({ message: "User registered successfully", user, token: accessToken });
 });
 
+const getMe = catchAsync(async (req, res) => {
+  // isAuth middleware မှတဆင့် req.user တွင် လက်ရှိ user data ပါလာသည်
+  // password နဲ့ refreshToken ကို မပါအောင် select လုပ်ပြီး ပြန်ပေးနိုင်သည်
+  const user = await User.findById(req.user._id).select("-password -refreshToken");
+
+  if (!user) {
+    return res.status(httpStatus.NOT_FOUND).json({ errorMessage: "User not found" });
+  }
+
+  res.status(httpStatus.OK).json({ message: "User data fetched successfully", user });
+});
+
+
+
 module.exports = {
   signUp,
   signIn,
@@ -95,4 +109,5 @@ module.exports = {
   getAllUser,
   Register,
   verifyOtpAndRegister,
+  getMe
 };

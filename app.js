@@ -1,6 +1,7 @@
 const express= require('express');
 const connectDB = require('./db/connectDb');
 require("dotenv").config();
+const cors=require('cors');
 const cookieParser = require('cookie-parser');
 const routes = require('./routes/v1/index.route')
 const httpStatus = require("http-status");
@@ -28,15 +29,11 @@ app.use(bodyParser.urlencoded({extended: false}));
 // routes conncection
 app.use('/api/v1/', routes)
 
-// frontend backend=>localhost:8080
-// if(process.env.NODE_ENV === 'production'){
- 
-//  app.use(express.static(path.join(__dirname,"../frontend/dist")));
-//   // react app
-//  app.get('*', (req, res) => {
-//     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-//   });
-// }
+app.use(cors({
+  origin: "https://react-828r.onrender.com/auth",
+  credentials: true
+}));
+
 server.listen(process.env.PORT || 8080,()=>{
     console.log('Server is running on port 8080');
 });  

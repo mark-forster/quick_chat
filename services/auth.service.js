@@ -89,6 +89,7 @@ const refreshAccessToken = async (refreshToken) => {
 
 const emailLogin = async (body) => {
   const { email, name, username, password } = body;
+  console.log(body);
   const otp = await otpService.generateAndSaveOTP(email, { name, username, email, password });
   await sendOTP(email, otp);
   return { email };
@@ -97,7 +98,7 @@ const emailLogin = async (body) => {
 const verifyOtpAndRegister = async (body) => {
   const { email, otp } = body;
   const userData = await otpService.verifyOTP(email, otp);
-
+  console.log(userData);
   if (!userData) throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
 
   const existingUser = await User.findOne({ email });
