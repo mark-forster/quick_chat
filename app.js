@@ -27,7 +27,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:3000",        // React local dev
   "https://react-828r.onrender.com",
-  "https://chat.arakkha.tech.com"   // React production URL
+  "https://chat.arakkha.tech"   // React production URL
 ];
 
 app.use(cors({
