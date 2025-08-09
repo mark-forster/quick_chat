@@ -24,7 +24,22 @@ app.use(express.json({ limit: "50mb" })); // To parse JSON data in the req.body
 app.use(express.json());//To parse json data in req.body
 app.use(express.urlencoded({ extended:false })); //To parse data in req.body
 app.use(cookieParser());
-app.use(cors());  //
+const allowedOrigins = [
+  "http://localhost:3000",        // React local dev
+  "https://react-828r.onrender.com",   // React production URL
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Flutter native requests တွေအတွက် allow
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error("Not allowed by CORS"), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+}));
+
 // routes conncection
 app.use('/api/v1/', routes)
 
