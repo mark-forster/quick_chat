@@ -24,8 +24,7 @@ app.use(express.json({ limit: "50mb" })); // To parse JSON data in the req.body
 app.use(express.json());//To parse json data in req.body
 app.use(express.urlencoded({ extended:false })); //To parse data in req.body
 app.use(cookieParser());
-
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(cors());  //
 // routes conncection
 app.use('/api/v1/', routes)
 

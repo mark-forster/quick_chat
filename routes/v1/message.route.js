@@ -3,6 +3,8 @@ const router = express.Router();
 const messageController = require("../../controllers/message.controller");
 const isAuth = require("../../middlewares/isAuth");
 
+//goto message page
+router.post("/conversations/start", isAuth, messageController.startConversation);
 // Send message (to group or one-to-one)
 router.post("/", isAuth, messageController.sendMessage);
 

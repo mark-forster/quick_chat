@@ -18,73 +18,78 @@ const createGroupChat = async ({ name, participants, creatorId }) => {
   }
 };
 
-const sendMessage = async ({
-  recipientId,
-  conversationId,
-  message,
-  senderId,
-  img,
-}) => {
+
+const findConversation = async (userId, otherUserId) => {
+  try {
+    const conversation = await Conversation.findOne({
+      isGroup: false,
+      participants: { $all: [userId, otherUserId] },
+    }).populate("participants", "username profilePic");
+
+    return conversation;
+  } catch (error) {
+    console.error("findConversation error:", error);
+    return null;
+  }
+};
+
+
+const sendMessage = async ({ recipientId, conversationId, message, senderId, img }) => {
   try {
     let conversation;
 
-    if (conversationId) {
-      // Group chat
+    // conversationId valid ရှိရင် conversation ရှာမယ်
+    if (conversationId && conversationId.trim() !== "") {
       conversation = await Conversation.findById(conversationId);
+      if (!conversation) throw new Error("Conversation not found");
     } else {
-      // One-to-One chat
+      // conversationId မရှိရင် one-to-one conversation ရှာမယ်
       conversation = await Conversation.findOne({
         participants: { $all: [senderId, recipientId] },
         isGroup: false,
       });
 
+      // conversation မရှိရင် အသစ်ဖန်တီးမယ်
       if (!conversation) {
-        conversation = new Conversation({
+        conversation = await Conversation.create({
           isGroup: false,
           participants: [senderId, recipientId],
-          lastMessage: {
-            text: message,
-            sender: senderId,
-          },
+          // lastMessage ကို ဖန်တီးထားသင့်တာ မဟုတ်ပါ
+          // ပထမ message ပို့တဲ့အချိန်မှာ lastMessage ကို update လုပ်မယ်
         });
-        await conversation.save();
       }
     }
 
-    if (!conversation) {
-      throw new Error("Conversation not found");
-    }
-
+    // image upload လုပ်မယ်ဆိုရင် cloudinary upload
     if (img) {
-      const uploadedResponse = await cloudinary.uploader.upload(img);
-      img = uploadedResponse.secure_url;
+      const uploaded = await cloudinary.uploader.upload(img);
+      img = uploaded.secure_url;
     }
 
-    const newMessage = new Message({
+    // message အသစ်ဖန်တီး
+    const newMessage = await Message.create({
       conversationId: conversation._id,
       sender: senderId,
       text: message,
       img: img || "",
+      seenBy: [senderId], // sender မှာ message ကို ရှေ့တန်းမှာကြည့်ပြီးသားအဖြစ် မှတ်မယ်
     });
 
-    await Promise.all([
-      newMessage.save(),
-      conversation.updateOne({
-        lastMessage: {
-          text: message,
-          sender: senderId,
-        },
-      }),
-    ]);
+    // conversation.lastMessage update လုပ်မယ် (seenBy ကနေ ဘယ်သူတွေကြည့်ပြီးဆိုတာ ကိုင်တွယ်ချင်ရင်)
+    conversation.lastMessage = {
+      text: message,
+      sender: senderId,
+      seenBy: [senderId],  // ပို့သူက message ကိုကြည့်ပြီးသားဖြစ်တာ
+    };
 
-    // Emit to all participants except sender
-    conversation.participants.forEach((participantId) => {
-      if (participantId.toString() !== senderId.toString()) {
-        const recipientSocketId = getRecipientSocketId(
-          participantId.toString()
-        );
-        if (recipientSocketId) {
-          io.to(recipientSocketId).emit("newMessage", newMessage);
+    await conversation.save();
+
+    // socket.io ကို notification ပို့မယ် (sender မဟုတ်တဲ့ participant တွေကို)
+    conversation.participants.forEach((pid) => {
+      if (pid.toString() !== senderId.toString()) {
+        const socketId = getRecipientSocketId(pid.toString());
+        if (socketId) {
+          io.to(socketId).emit("newMessage", newMessage);
         }
       }
     });
@@ -95,6 +100,7 @@ const sendMessage = async ({
     return null;
   }
 };
+
 
 const getMessages = async ({ conversationId }) => {
   const messages = await Message.find({ conversationId }).sort({
@@ -175,6 +181,7 @@ const removeFromGroup = async ({ conversationId, userId }) => {
 
 module.exports = {
   sendMessage,
+  findConversation,
   getMessages,
   getConversations,
   createGroupChat,

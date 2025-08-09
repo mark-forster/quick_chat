@@ -4,10 +4,30 @@ const ApiError = require("../config/apiError");
 const Conversation = require("../models/conversation.model");
 const cloudinary = require("cloudinary").v2;
 const messageService = require("../services/message.service");
-const sendMessage = catchAsync(async (req, res, next) => {
-  const { recipientId, conversationId, message, img } = req.body;
-  const senderId = req.user._id;
 
+const startConversation = catchAsync(async (req, res) => {
+  const userId = req.user._id;
+  const { otherUserId } = req.body;
+
+  if (!otherUserId) {
+    return res.status(400).json({ message: "Other user ID is required" });
+  }
+
+  const conversation = await messageService.findConversation(userId, otherUserId);
+
+  if (!conversation) {
+    return res.status(200).json({ data:null});
+  }
+
+  res.status(200).json({ message: "Conversation ready", data: conversation });
+});
+
+
+
+
+const sendMessage = catchAsync(async (req, res, next) => {
+  const { recipientId,conversationId, message, img } = req.body;
+   const senderId=req.user._id;
   const newMessage = await messageService.sendMessage({
     recipientId,
     conversationId,
@@ -94,6 +114,7 @@ const removeFromGroup = catchAsync(async (req, res, next) => {
 });
 
 module.exports = {
+  startConversation,
   sendMessage,
   getMessages,
   getConversations,
