@@ -8,7 +8,7 @@ router.post("/signIn", authController.signIn);
 router.post("/register", authController.Register);
 router.post("/verify-otp", authController.verifyOtpAndRegister);
 router.post("/signOut", isAuth, authController.signOut);
-router.get("/users", authController.getAllUser);
+router.get("/users",isAuth, authController.getAllUser);
 router.post("/refresh-token", authController.refreshTokenController);
 router.get("/me", isAuth, authController.getMe); // <-- ဒီ route ကို ထပ်ထည့်ပါ
 
