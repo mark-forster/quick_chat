@@ -5,7 +5,7 @@ const lastMessageSchema = new mongoose.Schema({
   text: String,
   sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   seenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-}, { _id: false });
+}, { _id: false , timestamps: true});
 
 const conversationSchema = new mongoose.Schema({
   isGroup: { type: Boolean, default: false },

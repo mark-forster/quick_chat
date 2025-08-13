@@ -2,7 +2,7 @@ const Message = require("../models/message.model");
 const Conversation = require("../models/conversation.model");
 const { getRecipientSocketId, io } = require("../socket/socket");
 const cloudinary = require("cloudinary").v2;
-
+const fs = require("fs");
 const createGroupChat = async ({ name, participants, creatorId }) => {
   try {
     const conversation = new Conversation({
@@ -36,67 +36,83 @@ const findConversation = async (userId, otherUserId) => {
 
 const sendMessage = async ({ recipientId, conversationId, message, senderId, img }) => {
   try {
-    let conversation;
+    
+let conversation;
 
-    // conversationId valid ရှိရင် conversation ရှာမယ်
-    if (conversationId && conversationId.trim() !== "") {
-      conversation = await Conversation.findById(conversationId);
-      if (!conversation) throw new Error("Conversation not found");
-    } else {
-      // conversationId မရှိရင် one-to-one conversation ရှာမယ်
-      conversation = await Conversation.findOne({
-        participants: { $all: [senderId, recipientId] },
-        isGroup: false,
-      });
+        // 1. Check conversationId is mock ID 
+        if (conversationId && conversationId.startsWith('mock-')) {
+            conversation = await Conversation.findOne({
+                participants: { $all: [senderId, recipientId] },
+            });
+            if (!conversation) {
+                conversation = await Conversation.create({
+                    isGroup: false,
+                    participants: [senderId, recipientId],
+                });
+            }
+        } else if (conversationId) {
+            conversation = await Conversation.findById(conversationId);
+            if (!conversation) throw new Error("Conversation not found");
+        } else {
+            conversation = await Conversation.findOne({
+                participants: { $all: [senderId, recipientId] },
+            });
+            if (!conversation) {
+                conversation = await Conversation.create({
+                    isGroup: false,
+                    participants: [senderId, recipientId],
+                });
+            }
+        }
 
-      // conversation မရှိရင် အသစ်ဖန်တီးမယ်
-      if (!conversation) {
-        conversation = await Conversation.create({
-          isGroup: false,
-          participants: [senderId, recipientId],
-          // lastMessage ကို ဖန်တီးထားသင့်တာ မဟုတ်ပါ
-          // ပထမ message ပို့တဲ့အချိန်မှာ lastMessage ကို update လုပ်မယ်
-        });
-      }
-    }
+    // 3. Upload image if provided
+     let uploadedFile=null;
+    // Update image to Cloudinary
+            if (img) {
+                uploadedFile = img.path;
+    
+                const uploadedResponse = await cloudinary.uploader.upload(img.path, {
+                    resource_type: "auto", // image or video
+                });
+    
+                // clear image form server disk after uploaded cloudinary
+                fs.unlinkSync(img.path);
+                
+                // image data 
+                imageInfo = {
+                    public_id: uploadedResponse.public_id,
+                    url: uploadedResponse.secure_url,
+                };
+            }
 
-    // image upload လုပ်မယ်ဆိုရင် cloudinary upload
-    if (img) {
-      const uploaded = await cloudinary.uploader.upload(img);
-      img = uploaded.secure_url;
-    }
-
-    // message အသစ်ဖန်တီး
+    // 4. Create new message
     const newMessage = await Message.create({
       conversationId: conversation._id,
       sender: senderId,
-      text: message,
-      img: img || "",
-      seenBy: [senderId], // sender မှာ message ကို ရှေ့တန်းမှာကြည့်ပြီးသားအဖြစ် မှတ်မယ်
+      text: message || "",
+      img: imageInfo,
+      seenBy: [senderId],
     });
 
-    // conversation.lastMessage update လုပ်မယ် (seenBy ကနေ ဘယ်သူတွေကြည့်ပြီးဆိုတာ ကိုင်တွယ်ချင်ရင်)
+    // 5. Update conversation's last message
     conversation.lastMessage = {
-      text: message,
+      text: message || (imageInfo ? "[Image]" : ""),
       sender: senderId,
-      seenBy: [senderId],  // ပို့သူက message ကိုကြည့်ပြီးသားဖြစ်တာ
+      seenBy: [senderId],
     };
-
     await conversation.save();
 
-    // socket.io ကို notification ပို့မယ် (sender မဟုတ်တဲ့ participant တွေကို)
+    // 6. Emit socket event to recipient(s)
     conversation.participants.forEach((pid) => {
-      if (pid.toString() !== senderId.toString()) {
-        const socketId = getRecipientSocketId(pid.toString());
-        if (socketId) {
-          io.to(socketId).emit("newMessage", newMessage);
-        }
-      }
-    });
+  const socketId = getRecipientSocketId(pid.toString());
+  if (socketId) {
+    io.to(socketId).emit("newMessage", newMessage);
+  }
+});
 
     return newMessage;
   } catch (err) {
-    console.error("Send Message Error:", err);
+    console.error("Send Message Error:", err.message || err);
     return null;
   }
 };
@@ -115,7 +131,7 @@ const getConversations = async (userId) => {
       participants: userId,
     }).populate({
       path: "participants",
-      select: "username profilePic",
+      select: "username profilePic name updatedAt",
     });
 
     conversations.forEach((conv) => {
@@ -179,6 +195,77 @@ const removeFromGroup = async ({ conversationId, userId }) => {
   }
 };
 
+const deleteMessage = async ({ messageId, currentUserId }) => {
+  try {
+    const message = await Message.findById(messageId);
+    if (!message) return null;
+
+    if (message.sender.toString() !== currentUserId.toString()) {
+      throw new Error("You are not authorized to delete this message.");
+    }
+
+    const conversationId = message.conversationId;
+    const deletedMessageId = message._id;
+    await Message.findByIdAndDelete(messageId);
+    const conversation = await Conversation.findById(conversationId);
+    if (conversation && conversation.lastMessage.text && conversation.lastMessage.sender) {
+        if (conversation.lastMessage.sender.toString() === message.sender.toString() && conversation.lastMessage.text === message.text) {
+            const lastMessage = await Message.findOne({ conversationId }).sort({ createdAt: -1 });
+            conversation.lastMessage = lastMessage ? {
+                text: lastMessage.text,
+                sender: lastMessage.sender,
+                seenBy: lastMessage.seenBy
+            } : {};
+            await conversation.save();
+        }
+    }
+    
+    // Conversation  participants 
+    const updatedConversation = await Conversation.findById(conversationId);
+    const participants = updatedConversation ? updatedConversation.participants : [];
+    
+    return { deletedMessageId, conversationId, participants };
+
+  } catch (error) {
+    console.error("Delete Message Error:", error);
+    return null;
+  }
+};
+
+
+const deleteConversation = async ({ conversationId, currentUserId }) => {
+  try {
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) return null;
+
+    // conversation  participants 
+    const participants = conversation.participants;
+
+    // Check permessiong to delete conversation 
+    if (!conversation.participants.some(p => p.toString() === currentUserId.toString())) {
+      throw new Error("You are not authorized to delete this conversation.");
+    }
+    
+    // Conversation  messages delete
+    await Message.deleteMany({ conversationId });
+    
+    // Conversation delete
+    await Conversation.findByIdAndDelete(conversationId);
+    
+    return { deletedConversationId: conversation._id, participants };
+
+  } catch (error) {
+    console.error("Delete Conversation Error:", error);
+    return null;
+  }
+};
+
+
+
+
+
+
+
 module.exports = {
   sendMessage,
   findConversation,
@@ -188,4 +275,6 @@ module.exports = {
   renameGroup,
   addToGroup,
   removeFromGroup,
+    deleteMessage,
+  deleteConversation,
 };

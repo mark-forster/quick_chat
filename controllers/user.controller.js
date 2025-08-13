@@ -61,6 +61,46 @@ if (mongoose.Types.ObjectId.isValid(query)) {
 });
 
 
+// Search user affctive
+// getting user profile by current user id
+const searchUserList=catchAsync(async (req,res,next)=>{
+ // We will fetch user profile either with username or userId
+ const {query} = req.params; let users;
+// query is userId
+    // Note: To return multiple users, we need to use 'find' instead of 'findOne'
+    // You can search by username only for partial matches.
+    // Searching by ObjectId with a regex is not recommended.
+
+    // If query is not a valid ObjectId, search for username with regex
+ if (!mongoose.Types.ObjectId.isValid(query)) { users = await User.find({
+        username: {
+          $regex: query,
+          $options: 'i' // This makes the search case-insensitive
+        }
+      }).select("-password").select("-updatedAt");
+ } else {
+      // If query is a valid ObjectId, find the user by ID
+      const user = await User.findOne({ _id: query }).select("-password").select("-updatedAt");
+      users = user ? [user] : [];
+    }
+
+    // You can also add logic to search the 'name' field if it exists
+    // users = await User.find({
+    //   $or: [
+    //     { username: { $regex: query, $options: 'i' } },
+    //     { name: { $regex: query, $options: 'i' } }
+    //   ]
+    // }).select("-password").select("-updatedAt");
+
+ if(users.length === 0){
+ return res.json( {errorMessage:"User not found"});
+ }
+ return res.status(200).json({users: users});
+});
+
+
+
+
 
 
 const getSuggestedUsers= catchAsync(async(req,res,next)=>{
@@ -80,4 +120,4 @@ const freezeAccount= catchAsync(async(req,res,next)=>{
     return res.status(201).json({message:"User account freeze successfully"})
 });
 
-module.exports = {followUnfollow,updateUser,getUserProfile,getSuggestedUsers,freezeAccount}
+module.exports = {followUnfollow,updateUser,getUserProfile,getSuggestedUsers,freezeAccount,searchUserList}

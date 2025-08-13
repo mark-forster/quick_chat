@@ -1,45 +1,73 @@
-const { Server } =require ("socket.io");
-const http= require("http");
-const express= require("express");
+const { Server } = require("socket.io");
+const http = require("http");
+const express = require("express");
 const app = express();
 const server = http.createServer(app);
+
 const Conversation = require('../models/conversation.model');
 const Message = require('../models/message.model');
+
+// map of userId => socketId
+const userSocketMap = new Map();
+
 const io = new Server(server, {
-	cors: {
-		origin: "http://localhost:3000",
-		methods: ["GET", "POST","PUT","DELETE"],
-	},
+ cors: {
+origin: [
+"http://localhost:3000",
+ "https://chat.arakkha.tech", //  frontend origin(s)
+ "https://app.example.tech"
+],
+ methods: ["GET", "POST"],
+ credentials: true
+ },// path: "/socket.io" // default
 });
 
- const getRecipientSocketId = (recipientId) => {
-	return userSocketMap[recipientId];
+const getRecipientSocketId = (recipientId) => {  return userSocketMap.get(String(recipientId));
 };
 
+io.on("connection", async (socket) => {
+const { userId } = socket.handshake.query || {};
+ if (!userId) return;
 
-const userSocketMap={}; //userId : socket Id
-io.on("connection", (socket)=>{
-    console.log(`user connected: ${socket.id}`);
-    const userId= socket.handshake.query.userId;
-    if(userId != "undefined") userSocketMap[userId] = socket.id;
+// insert new user to userSocketMap
+userSocketMap.set(userId, socket.id);
 
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
-    socket.on("markMessagesAsSeen", async ({ conversationId, userId }) => {
-		try {
-			await Message.updateMany({ conversationId: conversationId, seen: false }, { $set: { seen: true } });
-			await Conversation.updateOne({ _id: conversationId }, { $set: { "lastMessage.seen": true } });
-			io.to(userSocketMap[userId]).emit("messagesSeen", { conversationId });
-		} catch (error) {
-			console.log(error);
-		}
-	});
+// user  connect and send  online users list  clients
+io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
 
-    
-    socket.on("disconnect", () => {
-        console.log(`user disconnected: ${socket.id}`);
-        delete userSocketMap[userId];
-		io.emit("getOnlineUsers", Object.keys(userSocketMap));
-    });
-})
+// join user to all their conversation rooms
+try {
+ const userConversations = await Conversation.find({
+ participants: userId
+ }).select("_id");
 
-module.exports = { io, server, app,getRecipientSocketId };
+ userConversations.forEach(({ _id }) => {
+socket.join(_id.toString());
+});
+} catch (err) {
+ console.error("Error joining conversation rooms:", err);  }
+
+ // handle new message event if you want (or elsewhere in your API)
+socket.on("sendMessage", async (data) => {
+ // after saving message to DB
+ const { conversationId, message } = data;
+
+ // emit to all sockets in conversation room
+ io.to(conversationId).emit("newMessage", message);
+ 
+ // update lastMessage on conversation if needed
+ io.to(conversationId).emit("lastMessageUpdate", {
+conversationId,
+ lastMessage: message,
+ });
+});
+
+socket.on("disconnect", () => {
+ // user disconnect  delete form array map
+ userSocketMap.delete(userId);
+ // online users list to  clients 
+ io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
+});
+});
+
+module.exports = { app, server, io, getRecipientSocketId, userSocketMap };

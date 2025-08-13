@@ -32,7 +32,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // Flutter native requests တွေအတွက် allow
+    if (!origin) return callback(null, true); // Flutter native requests  allow
     if (allowedOrigins.indexOf(origin) === -1) {
       return callback(new Error("Not allowed by CORS"), false);
     }

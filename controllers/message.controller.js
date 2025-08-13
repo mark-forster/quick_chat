@@ -4,7 +4,7 @@ const ApiError = require("../config/apiError");
 const Conversation = require("../models/conversation.model");
 const cloudinary = require("cloudinary").v2;
 const messageService = require("../services/message.service");
-
+const fs=require("fs")
 const startConversation = catchAsync(async (req, res) => {
   const userId = req.user._id;
   const { otherUserId } = req.body;
@@ -26,8 +26,10 @@ const startConversation = catchAsync(async (req, res) => {
 
 
 const sendMessage = catchAsync(async (req, res, next) => {
-  const { recipientId,conversationId, message, img } = req.body;
-   const senderId=req.user._id;
+  const senderId=req.user._id;
+  const { recipientId,conversationId, message } = req.body;
+  const img=req.file;
+  // console.log("Incoming sendMessage data:", { recipientId, conversationId, message, senderId, img });
   const newMessage = await messageService.sendMessage({
     recipientId,
     conversationId,
@@ -51,6 +53,7 @@ const getMessages = catchAsync(async (req, res, next) => {
 const getConversations = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const result = await messageService.getConversations(userId);
+
   res
     .status(200)
     .json({
@@ -113,6 +116,60 @@ const removeFromGroup = catchAsync(async (req, res, next) => {
     .json({ message: "Member removed successfully", data: result });
 });
 
+const deleteMessage = catchAsync(async (req, res, next) => {
+  const { messageId } = req.params;
+  const currentUserId = req.user._id;
+
+  const result = await messageService.deleteMessage({ messageId, currentUserId });
+
+  if (!result) {
+    return res.status(404).json({ message: "Message not found or unauthorized" });
+  }
+
+  // Socket event  participants  
+  if (req.io) {
+    result.participants.forEach((participantId) => {
+      req.io.to(participantId.toString()).emit("messageDeleted", {
+        conversationId: result.conversationId.toString(),
+        messageId: result.deletedMessageId.toString(),
+      });
+    });
+  }
+
+  res.status(200).json({
+    message: "Message deleted successfully",
+    data: { messageId: result.deletedMessageId },
+  });
+});
+
+const deleteConversation = catchAsync(async (req, res, next) => {
+  const { conversationId } = req.params;
+  const currentUserId = req.user._id;
+
+  const result = await messageService.deleteConversation({ conversationId, currentUserId });
+
+  if (!result) {
+    return res.status(404).json({ message: "Conversation not found or unauthorized" });
+  }
+
+  // Socket event  participants 
+  if (req.io) {
+    result.participants.forEach((participantId) => {
+      req.io.to(participantId.toString()).emit("conversationDeleted", {
+        conversationId: result.deletedConversationId.toString(),
+      });
+    });
+  }
+
+  res.status(200).json({
+    message: "Conversation deleted successfully",
+    data: { conversationId: result.deletedConversationId },
+  });
+});
+
+
+
+
 module.exports = {
   startConversation,
   sendMessage,
@@ -122,4 +179,6 @@ module.exports = {
   renameGroup,
   addToGroup,
   removeFromGroup,
+    deleteMessage,
+  deleteConversation,
 };
