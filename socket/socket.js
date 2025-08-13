@@ -14,8 +14,7 @@ const io = new Server(server, {
  cors: {
 origin: [
 "http://localhost:3000",
- "https://chat.arakkha.tech", //  frontend origin(s)
- "https://app.example.tech"
+ "https://qchat.arakkha.tech", //  frontend origin(s)
 ],
  methods: ["GET", "POST"],
  credentials: true
