@@ -90,7 +90,7 @@ let conversation;
       conversationId: conversation._id,
       sender: senderId,
       text: message || "",
-      img: imageInfo,
+      img: imageInfo?imageInfo:"",
       seenBy: [senderId],
     });
 
@@ -112,6 +112,10 @@ let conversation;
 
     return newMessage;
   } catch (err) {
+     // delete file from server if error
+   if (imageInfo && fs.existsSync(imageInfo)) {
+                fs.unlinkSync(imageInfo);
+            }  
     console.error("Send Message Error:", err.message || err);
     return null;
   }
