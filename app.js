@@ -26,8 +26,8 @@ app.use(express.urlencoded({ extended:false })); //To parse data in req.body
 app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:3000",        // React local dev
-  "https://react-828r.onrender.com",
-  "https://chat.arakkha.tech"   // React production URL
+  "https://react-sd6g.onrender.com/",
+  "https://qchat.arakkha.tech"   // React production URL
 ];
 
 app.use(cors({
