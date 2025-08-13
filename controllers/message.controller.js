@@ -25,24 +25,86 @@ const startConversation = catchAsync(async (req, res) => {
 
 
 
-const sendMessage = catchAsync(async (req, res, next) => {
-  const senderId=req.user._id;
-  const { recipientId,conversationId, message } = req.body;
-  const img=req.file;
-  // console.log("Incoming sendMessage data:", { recipientId, conversationId, message, senderId, img });
-  const newMessage = await messageService.sendMessage({
-    recipientId,
-    conversationId,
-    message,
-    senderId,
-    img,
-  });
+const sendMessage = async ({ recipientId, conversationId, message, senderId, img }) => {
+    try {
+        let conversation;
+        let imageInfo = null;
 
-  if (!newMessage) {
-    return res.status(400).json({ message: "Message failed to send" });
-  }
-return  res.status(201) .json({ message: "Message sent successfully", data: newMessage });
-});
+        if (conversationId && conversationId.startsWith('mock-')) {
+            conversation = await Conversation.findOne({
+                participants: { $all: [senderId, recipientId] },
+            });
+            if (!conversation) {
+                conversation = await Conversation.create({
+                    isGroup: false,
+                    participants: [senderId, recipientId],
+                });
+            }
+        } else if (conversationId) {
+            conversation = await Conversation.findById(conversationId);
+            if (!conversation) throw new Error("Conversation not found");
+        } else {
+            conversation = await Conversation.findOne({
+                participants: { $all: [senderId, recipientId] },
+            });
+            if (!conversation) {
+                conversation = await Conversation.create({
+                    isGroup: false,
+                    participants: [senderId, recipientId],
+                });
+            }
+        }
+
+        // 3. Upload image if provided
+        let uploadedFile = null;
+        if (img) {
+            uploadedFile = img.path;
+
+            const uploadedResponse = await cloudinary.uploader.upload(img.path, {
+                resource_type: "auto",
+            });
+
+            fs.unlinkSync(img.path);
+
+            imageInfo = {
+                public_id: uploadedResponse.public_id,
+                url: uploadedResponse.secure_url,
+            };
+        }
+
+        // 4. Create new message
+        const newMessage = await Message.create({
+            conversationId: conversation._id,
+            sender: senderId,
+            text: message || "",
+            img: imageInfo || null,
+            seenBy: [senderId],
+        });
+
+        // 5. Update conversation's last message
+        conversation.lastMessage = {
+            text: message || (imageInfo ? "[Image]" : ""),
+            sender: senderId,
+            seenBy: [senderId],
+        };
+        await conversation.save();
+
+        // 6. Emit socket event to recipient(s)
+        conversation.participants.forEach((pid) => {
+            const socketId = getRecipientSocketId(pid.toString());
+            if (socketId) {
+                io.to(socketId).emit("newMessage", newMessage);
+            }
+        });
+
+        return newMessage;
+    } catch (err) {
+        // ... (existing error handling code)
+        console.error("Send Message Error:", err.message || err);
+        return null;
+    }
+};
+
 
 const getMessages = catchAsync(async (req, res, next) => {
   const { conversationId } = req.params;

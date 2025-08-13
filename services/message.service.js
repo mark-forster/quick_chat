@@ -33,13 +33,11 @@ const findConversation = async (userId, otherUserId) => {
   }
 };
 
-
 const sendMessage = async ({ recipientId, conversationId, message, senderId, img }) => {
-  try {
-    
-let conversation;
+    try {
+        let conversation;
+        let imageInfo = null;
 
-        // 1. Check conversationId is mock ID 
         if (conversationId && conversationId.startsWith('mock-')) {
             conversation = await Conversation.findOne({
                 participants: { $all: [senderId, recipientId] },
@@ -65,60 +63,54 @@ let conversation;
             }
         }
 
-    // 3. Upload image if provided
-     let uploadedFile=null;
-    // Update image to Cloudinary
-            if (img) {
-                uploadedFile = img.path;
-    
-                const uploadedResponse = await cloudinary.uploader.upload(img.path, {
-                    resource_type: "auto", // image or video
-                });
-    
-                // clear image form server disk after uploaded cloudinary
-                fs.unlinkSync(img.path);
-                
-                // image data 
-                imageInfo = {
-                    public_id: uploadedResponse.public_id,
-                    url: uploadedResponse.secure_url,
-                };
+        // 3. Upload image if provided
+        let uploadedFile = null;
+        if (img) {
+            uploadedFile = img.path;
+
+            const uploadedResponse = await cloudinary.uploader.upload(img.path, {
+                resource_type: "auto",
+            });
+
+            fs.unlinkSync(img.path);
+
+            imageInfo = {
+                public_id: uploadedResponse.public_id,
+                url: uploadedResponse.secure_url,
+            };
+        }
+
+        // 4. Create new message
+        const newMessage = await Message.create({
+            conversationId: conversation._id,
+            sender: senderId,
+            text: message || "",
+            img: imageInfo || null,
+            seenBy: [senderId],
+        });
+
+        // 5. Update conversation's last message
+        conversation.lastMessage = {
+            text: message || (imageInfo ? "[Image]" : ""),
+            sender: senderId,
+            seenBy: [senderId],
+        };
+        await conversation.save();
+
+        // 6. Emit socket event to recipient(s)
+        conversation.participants.forEach((pid) => {
+            const socketId = getRecipientSocketId(pid.toString());
+            if (socketId) {
+                io.to(socketId).emit("newMessage", newMessage);
             }
+        });
 
-    // 4. Create new message
-    const newMessage = await Message.create({
-      conversationId: conversation._id,
-      sender: senderId,
-      text: message || "",
-      img: imageInfo?imageInfo:"",
-      seenBy: [senderId],
-    });
-
-    // 5. Update conversation's last message
-    conversation.lastMessage = {
-      text: message || (imageInfo ? "[Image]" : ""),
-      sender: senderId,
-      seenBy: [senderId],
-    };
-    await conversation.save();
-
-    // 6. Emit socket event to recipient(s)
-    conversation.participants.forEach((pid) => {
-  const socketId = getRecipientSocketId(pid.toString());
-  if (socketId) {
-    io.to(socketId).emit("newMessage", newMessage);
-  }
-});
-
-    return newMessage;
-  } catch (err) {
-     // delete file from server if error
-   if (imageInfo && fs.existsSync(imageInfo)) {
-                fs.unlinkSync(imageInfo);
-            }  
-    console.error("Send Message Error:", err.message || err);
-    return null;
-  }
+        return newMessage;
+    } catch (err) {
+        // ... (existing error handling code)
+        console.error("Send Message Error:", err.message || err);
+        return null;
+    }
 };
 
 
